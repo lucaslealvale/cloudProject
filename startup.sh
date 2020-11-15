@@ -1,5 +1,5 @@
 #!/bin/bash          
-sudo apt update && sudo apt upgrade 
+sudo apt update && sudo apt upgrade -y
 echo "rodou isto e apenas um teste" > /home/ubuntu/test.txt
 sudo apt install postgresql postgresql-contrib -y
 sudo su - postgres -c "psql -c \"CREATE USER cloud  WITH PASSWORD 'cloud' \""
