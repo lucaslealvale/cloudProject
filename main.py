@@ -78,17 +78,10 @@ ec2_Ohio = boto3.resource('ec2', region_name='us-east-2')
 
 #ubuntu 18 instance type NORTH VIRGINIA - ami-0817d428a6fb68645 
 #ubuntu 18 instance type OHIO - ami-0dd9f0e7df0f0a138 
-#mockzada
-user_data = '''#!/bin/bash
-echo 'test' > /tmp/hello'''
 
+#create_instance(ec2_Ohio, 'ami-0dd9f0e7df0f0a138',1,1,'t2.micro', 'lucas','postgres','lucask','sg-e4539d98', open('startup.sh').read())
 
-
-
-create_instance(ec2_Ohio, 'ami-0dd9f0e7df0f0a138',1,1,'t2.micro', 'lucas','postgres','lucask','sg-e4539d98', open('startup.sh').read())
-
-
-create_instance(ec2_NorthVirginia, 'ami-0817d428a6fb68645',1,1,'t2.micro', 'lucas','ORM_jango','lucaslealk','sg-017d1eb931b861ac5', open('startupNV.sh').read())
+#create_instance(ec2_NorthVirginia, 'ami-0817d428a6fb68645',1,1,'t2.micro', 'lucas','ORM_jango','lucaslealk','sg-017d1eb931b861ac5', open('startupNV.sh').read())
 
 check_instances(ec2)
 
