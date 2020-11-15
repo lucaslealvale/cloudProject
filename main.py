@@ -82,6 +82,14 @@ ec2_Ohio = boto3.resource('ec2', region_name='us-east-2')
 #create_instance(ec2_Ohio, 'ami-0dd9f0e7df0f0a138',1,1,'t2.micro', 'lucas','postgres','lucask','sg-e4539d98', open('startup.sh').read())
 
 #create_instance(ec2_NorthVirginia, 'ami-0817d428a6fb68645',1,1,'t2.micro', 'lucas','ORM_jango','lucaslealk','sg-017d1eb931b861ac5', open('startupNV.sh').read())
+#waiter = ec2_NorthVirginia.get_waiter("network_interface_available")
+#waiter.wait(NetworkInterfaceIds=[*])
 
-check_instances(ec2)
+check_instances(ec2_NorthVirginia)
+
+check_instances(ec2_Ohio)
+
+ec2 = boto3.client('ec2')
+response = ec2.describe_instances()
+print(response)
 
