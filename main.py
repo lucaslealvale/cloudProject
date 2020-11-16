@@ -33,7 +33,7 @@ def describe_instance(group):
     print(response)
 
 def create_instance(group,ami, mincount, maxcount, machine, owner,name, myKey,security_group, startUP):
-    group.create_instances(ImageId=ami, MinCount=mincount, MaxCount=maxcount,SecurityGroupIds=[security_group,], InstanceType = machine, TagSpecifications=[
+    a = group.create_instances(ImageId=ami, MinCount=mincount, MaxCount=maxcount,SecurityGroupIds=[security_group,], InstanceType = machine, TagSpecifications=[
         {
             'ResourceType':'instance',
             'Tags': [
@@ -48,7 +48,8 @@ def create_instance(group,ami, mincount, maxcount, machine, owner,name, myKey,se
             ]
         },
     ], KeyName=myKey, UserData = startUP
-)
+    )
+    return (a[0].instance_id)
 
     
 
@@ -79,17 +80,23 @@ ec2_Ohio = boto3.resource('ec2', region_name='us-east-2')
 #ubuntu 18 instance type NORTH VIRGINIA - ami-0817d428a6fb68645 
 #ubuntu 18 instance type OHIO - ami-0dd9f0e7df0f0a138 
 
-#create_instance(ec2_Ohio, 'ami-0dd9f0e7df0f0a138',1,1,'t2.micro', 'lucas','postgres','lucask','sg-e4539d98', open('startup.sh').read())
+id = create_instance(ec2_Ohio, 'ami-0dd9f0e7df0f0a138',1,1,'t2.micro', 'lucas','postgres','lucask','sg-e4539d98', open('startup.sh').read())
 
-#create_instance(ec2_NorthVirginia, 'ami-0817d428a6fb68645',1,1,'t2.micro', 'lucas','ORM_jango','lucaslealk','sg-017d1eb931b861ac5', open('startupNV.sh').read())
-#waiter = ec2_NorthVirginia.get_waiter("network_interface_available")
-#waiter.wait(NetworkInterfaceIds=[*])
+ec2_NorthVirginia_cli = boto3.resource('ec2', region_name='us-east-1')
+ec2_Ohio_cli = boto3.resource('ec2', region_name='us-east-2')
+
+print("hey", id)
+
+waiter = ec2_NorthVirginia.get_waiter('instance_running')
+waiter.wait(InstanceIds=[
+        id,
+    ])
+print("ho",id)
+create_instance(ec2_NorthVirginia, 'ami-0817d428a6fb68645',1,1,'t2.micro', 'lucas','ORM_jango','lucaslealk','sg-017d1eb931b861ac5', open('startupNV.sh').read())
 
 check_instances(ec2_NorthVirginia)
 
 check_instances(ec2_Ohio)
 
-ec2 = boto3.client('ec2')
-response = ec2.describe_instances()
 print(response)
 
