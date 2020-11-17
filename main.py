@@ -13,7 +13,7 @@
 # edit file in the last line----->https://unix.stackexchange.com/questions/20573/sed-insert-text-after-the-last-line
 # EDIT FILE PYTHON ---> https://www.kite.com/python/answers/how-to-edit-a-specific-line-in-a-text-file-in-python
 #-----------------------------------------------------------------------------------------------------------------------------------------------------
-
+import time
 import boto3
 from botocore.exceptions import ClientError
 
@@ -32,12 +32,27 @@ def reboot(group, id_instance):
         print('Error', e)
 
 
-def describe_instance(group):
+def getIP(group):
     response = group.describe_instances()
-    return(response['Reservations'][0]['Instances'][0]['PublicIpAddress'])
-
+    for a in response['Reservations']:
+        for i in a['Instances']:
+            if i['KeyName'] == 'lucask':
+                if i['State']['Name'] == 'running':
+                    #print(i['PublicIpAddress'])
+                    return(i['PublicIpAddress'])
+                    
+def getOwner(group):
+    response = group.describe_instances()
+    for a in response['Reservations']:
+        for i in a['Instances']:
+            if i['KeyName'] == 'lucask':
+                if i['State']['Name'] == 'running':
+                    #print(i['InstanceId'])
+                    return(i['InstanceId'])
+                    
+                    
 def create_instance(group,ami, mincount, maxcount, machine, owner,name, myKey,security_group, startUP):
-    a = group.create_instances(ImageId=ami, MinCount=mincount, MaxCount=maxcount,SecurityGroupIds=[security_group,], InstanceType = machine, TagSpecifications=[
+    instances = group.create_instances(ImageId=ami, MinCount=mincount, MaxCount=maxcount,SecurityGroupIds=[security_group,], InstanceType = machine, TagSpecifications=[
         {
             'ResourceType':'instance',
             'Tags': [
@@ -53,7 +68,7 @@ def create_instance(group,ami, mincount, maxcount, machine, owner,name, myKey,se
         },
     ], KeyName=myKey, UserData = startUP
     )
-    return (a)
+    return (instances)
 
 def stop_instance(group,ids):
     
@@ -69,9 +84,10 @@ def  check_instances(group):
     instances = group.instances.filter(
         Filters=[{'Name': 'instance-state-name', 'Values': ['running']}])
 
+
     for instance in instances:
-        id_inst_list.append(instance.id)
-        print(instance.id, instance.instance_type)
+            id_inst_list.append(instance.id)
+            print(instance.id, instance.instance_type)
 
     return(id_inst_list)
 
@@ -84,10 +100,23 @@ ec2_Ohio_cli = boto3.client('ec2', region_name='us-east-2')
 ec2_NorthVirginia_cli = boto3.client('ec2', region_name='us-east-1')
 
 
-#-----------------------------------------------------------------------------------------------------------------------------------------------------
-# SELECIONANDO IP PARA O 
 
-ip4django = describe_instance(ec2_Ohio_cli)
+#-----------------------------------------------------------------------------------------------------------------------------------------------------
+# CREATING INSTANCE POSTGRESQL
+create_instance(ec2_Ohio, 'ami-0dd9f0e7df0f0a138',1,1,'t2.micro', 'lucas','postgres-LUCAS','lucask','sg-e4539d98', open('startup.sh').read())
+time.sleep(20)
+ohioInst = getOwner(ec2_Ohio_cli)
+print(ohioInst)
+
+waiter = ec2_Ohio_cli.get_waiter('instance_status_ok')
+waiter.wait(InstanceIds=[
+        ohioInst,
+    ],)
+
+#-----------------------------------------------------------------------------------------------------------------------------------------------------
+# SELECIONANDO IP PARA O DJANGO
+getIP(ec2_Ohio_cli)
+ip4django = getIP(ec2_Ohio_cli)
 start = open("startupNV.sh", "r")
 lines = start.readlines()
 lines[6] = ("sudo sed -i 's/node1/{0}/g' /home/ubuntu/tasks/portfolio/settings.py\n").format(ip4django)
@@ -95,10 +124,6 @@ start = open("startupNV.sh", "w")
 start.writelines(lines)
 start.close()
 
-
 #-----------------------------------------------------------------------------------------------------------------------------------------------------
-# CREATING INSTANCES
-# Postgres
-#create_instance(ec2_Ohio, 'ami-0dd9f0e7df0f0a138',1,1,'t2.micro', 'lucas','postgres','lucask','sg-e4539d98', open('startup.sh').read())
-# Django
-#create_instance(ec2_NorthVirginia, 'ami-0817d428a6fb68645',1,1,'t2.micro', 'lucas','ORM_jango','lucaslealk','sg-017d1eb931b861ac5', open('startupNV.sh').read())
+# CREATING INSTANCES DJANGO
+create_instance(ec2_NorthVirginia, 'ami-0817d428a6fb68645',1,1,'t2.micro', 'lucas','django-LUCAS','lucaslealk','sg-017d1eb931b861ac5', open('startupNV.sh').read())
