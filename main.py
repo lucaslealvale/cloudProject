@@ -89,6 +89,45 @@ def  check_instances(group):
 
     return(id_inst_list)
 
+def create_image(group,instID):   
+    response = group.create_image(
+        Description='imagem django lucas',
+        InstanceId=instID,
+        Name='django-lucas',
+    )
+    return(response['ImageId'])
+
+
+
+# create_LoadBalancer(group, name):
+#     response = group.create_load_balancer(
+#         LoadBalancerName= name,
+#         Listeners=[
+#             {
+#                 'Protocol': 'HTTP',
+#                 'LoadBalancerPort': 123,
+#                 'InstanceProtocol': 'string',
+#                 'InstancePort': 123,
+#                 'SSLCertificateId': 'string'
+#             },
+#         ],
+#         AvailabilityZones=[
+#             'string',
+#         ],
+#         Subnets=[
+#             'string',
+#         ],
+#         SecurityGroups=[
+#             'string',
+#         ],
+#         Scheme='string',
+#         Tags=[
+#             {
+#                 'Key': 'string',
+#                 'Value': 'string'
+#             },
+#         ]
+#     )
 #-----------------------------------------------------------------------------------------------------------------------------------------------------
 # RESOURCES
 ec2_NorthVirginia = boto3.resource('ec2', region_name='us-east-1')
@@ -131,3 +170,13 @@ waiter.wait(InstanceIds=[
 
 django_IP = getIP(ec2_NorthVirginia_cli, django)
 print("Para acessar o DB online -> http://{0}:8080/admin".format(django_IP))
+
+print('criando image...')
+djangoImageId = create_image(ec2_NorthVirginia_cli,django)
+
+waiter = ec2_NorthVirginia_cli.get_waiter('image_available')
+waiter.wait(
+    ImageIds=[
+        djangoImageId,]
+)
+print("imagem criada!")
