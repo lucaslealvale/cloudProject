@@ -32,13 +32,12 @@ def reboot(group, id_instance):
         print('Error', e)
 
 
-def getIP(group):
+def getIP(group, id):
     response = group.describe_instances()
     for a in response['Reservations']:
         for i in a['Instances']:
-            if i['KeyName'] == 'lucask':
+            if i['InstanceId'] == id:
                 if i['State']['Name'] == 'running':
-                    #print(i['PublicIpAddress'])
                     return(i['PublicIpAddress'])
                     
 def getOwner(group):
@@ -47,12 +46,11 @@ def getOwner(group):
         for i in a['Instances']:
             if i['KeyName'] == 'lucask':
                 if i['State']['Name'] == 'running':
-                    #print(i['InstanceId'])
                     return(i['InstanceId'])
                     
                     
 def create_instance(group,ami, mincount, maxcount, machine, owner,name, myKey,security_group, startUP):
-    instances = group.create_instances(ImageId=ami, MinCount=mincount, MaxCount=maxcount,SecurityGroupIds=[security_group,], InstanceType = machine, TagSpecifications=[
+    response = group.run_instances(ImageId=ami, MinCount=mincount, MaxCount=maxcount,SecurityGroupIds=[security_group,], InstanceType = machine, TagSpecifications=[
         {
             'ResourceType':'instance',
             'Tags': [
@@ -68,7 +66,7 @@ def create_instance(group,ami, mincount, maxcount, machine, owner,name, myKey,se
         },
     ], KeyName=myKey, UserData = startUP
     )
-    return (instances)
+    return (response['Instances'][0]['InstanceId'])
 
 def stop_instance(group,ids):
     
@@ -103,20 +101,17 @@ ec2_NorthVirginia_cli = boto3.client('ec2', region_name='us-east-1')
 
 #-----------------------------------------------------------------------------------------------------------------------------------------------------
 # CREATING INSTANCE POSTGRESQL
-create_instance(ec2_Ohio, 'ami-0dd9f0e7df0f0a138',1,1,'t2.micro', 'lucas','postgres-LUCAS','lucask','sg-e4539d98', open('startup.sh').read())
-time.sleep(20)
-ohioInst = getOwner(ec2_Ohio_cli)
-print(ohioInst)
+postgres = create_instance(ec2_Ohio_cli, 'ami-0dd9f0e7df0f0a138',1,1,'t2.micro', 'lucas','postgres-LUCAS','lucask','sg-e4539d98', open('startup.sh').read())
+print("Subindo Postgres...")
 
 waiter = ec2_Ohio_cli.get_waiter('instance_status_ok')
 waiter.wait(InstanceIds=[
-        ohioInst,
+        postgres,
     ],)
 
 #-----------------------------------------------------------------------------------------------------------------------------------------------------
 # SELECIONANDO IP PARA O DJANGO
-getIP(ec2_Ohio_cli)
-ip4django = getIP(ec2_Ohio_cli)
+ip4django = getIP(ec2_Ohio_cli, postgres)
 start = open("startupNV.sh", "r")
 lines = start.readlines()
 lines[6] = ("sudo sed -i 's/node1/{0}/g' /home/ubuntu/tasks/portfolio/settings.py\n").format(ip4django)
@@ -126,4 +121,13 @@ start.close()
 
 #-----------------------------------------------------------------------------------------------------------------------------------------------------
 # CREATING INSTANCES DJANGO
-create_instance(ec2_NorthVirginia, 'ami-0817d428a6fb68645',1,1,'t2.micro', 'lucas','django-LUCAS','lucaslealk','sg-017d1eb931b861ac5', open('startupNV.sh').read())
+django = create_instance(ec2_NorthVirginia_cli, 'ami-0817d428a6fb68645',1,1,'t2.micro', 'lucas','django-LUCAS','lucaslealk','sg-017d1eb931b861ac5', open('startupNV.sh').read())
+print("Subindo Django...")
+
+waiter = ec2_NorthVirginia_cli.get_waiter('instance_status_ok')
+waiter.wait(InstanceIds=[
+        django,
+    ],)
+
+django_IP = getIP(ec2_NorthVirginia_cli, django)
+print("Para acessar o DB online -> http://{0}:8080/admin".format(django_IP))
