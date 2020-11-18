@@ -116,11 +116,12 @@ def create_LoadBalancer(group, name):
             'sg-017d1eb931b861ac5',
         ],
     )
-    return response
+    print(response['DNSName'])
+    return response['DNSName']
 
 def create_autoScalingGroup(group, instDjango, loadbalance):
     response = group.create_auto_scaling_group(
-        AutoScalingGroupName='Django-Lucas-AutoScale',
+        AutoScalingGroupName='Django-Lucas-AutoScale2',
 
         InstanceId=instDjango,
         MinSize=1,
@@ -145,6 +146,21 @@ ec2_NorthVirginia_cli = boto3.client('ec2', region_name='us-east-1')
 elb = boto3.client('elb',region_name='us-east-1')
 autoscaling = boto3.client('autoscaling',region_name='us-east-1')
 
+
+#-----------------------------------------------------------------------------------------------------------------------------------------------------
+# PREPARANDO O TERRENO - DELETING PREVIOUS INSTANCES IF EXIST
+
+
+
+
+
+
+
+
+
+
+
+
 #-----------------------------------------------------------------------------------------------------------------------------------------------------
 # CREATING INSTANCE POSTGRESQL
 postgres = create_instance(ec2_Ohio_cli, 'ami-0dd9f0e7df0f0a138',1,1,'t2.micro', 'lucas','postgres-LUCAS','lucask','sg-e4539d98', open('startup.sh').read())
@@ -157,7 +173,7 @@ waiter.wait(InstanceIds=[
     ],)
 
 #-----------------------------------------------------------------------------------------------------------------------------------------------------
-# SELECIONANDO IP PARA O DJANGO
+# SELECIONANDO IP do PostgreSQL PARA O DJANGO
 ip4django = getIP(ec2_Ohio_cli, postgres)
 start = open("startupNV.sh", "r")
 lines = start.readlines()
@@ -177,23 +193,16 @@ waiter.wait(InstanceIds=[
     ],)
 
 django_IP = getIP(ec2_NorthVirginia_cli, django)
-print("Para acessar o DB online -> http://{0}:8080/admin".format(django_IP))
-
-# print('criando image...')
-# djangoImageId = create_image(ec2_NorthVirginia_cli,django)
-
-# waiter = ec2_NorthVirginia_cli.get_waiter('image_available')
-# waiter.wait(
-#     ImageIds=[
-#         djangoImageId,]
-# )
-# print("imagem criada!")
-
-# stop_instance(ec2_NorthVirginia, django)
-
+print("Para acessar o DB online via django original-> http://{0}:8080/admin".format(django_IP))
 
 #-----------------------------------------------------------------------------------------------------------------------------------------------------
 # CREATING LOAD BALANCE
 loadbalance = create_LoadBalancer(elb, 'loadbalancelucas1')
-print("pararatimbum")
+print("Para acessar o DB via load banlancer online -> http://{0}:80/admin".format(loadbalance))
+
+#-----------------------------------------------------------------------------------------------------------------------------------------------------
+# CREATING AutoScalingGroup
 autoscaling = create_autoScalingGroup(autoscaling,django,'loadbalancelucas1')
+
+#-----------------------------------------------------------------------------------------------------------------------------------------------------
+print("Tudo online!")
