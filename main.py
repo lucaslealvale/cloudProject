@@ -71,7 +71,7 @@ def create_instance(group,ami, mincount, maxcount, machine, owner,name, myKey,se
 def stop_instance(group,ids):
     
     try:
-        group.instances.filter(InstanceIds=ids).terminate()
+        group.instances.filter(InstanceIds=[ids]).terminate()
     except ClientError as e:
         if 'DryRunOperation' not in str(e):
             print("instancia ja pausada")
@@ -98,36 +98,42 @@ def create_image(group,instID):
     return(response['ImageId'])
 
 
+def create_LoadBalancer(group, name):
+    response = group.create_load_balancer(
+        LoadBalancerName= name,
+        Listeners=[
+            {
+                'Protocol': 'HTTP',
+                'LoadBalancerPort': 80,
+                'InstancePort': 8080,
+            },
+        ],
+        AvailabilityZones=[
+            'us-east-1a','us-east-1b','us-east-1c',
+            'us-east-1d' ,'us-east-1e','us-east-1f',
+        ],
+        SecurityGroups=[
+            'sg-017d1eb931b861ac5',
+        ],
+    )
+    return response
 
-# create_LoadBalancer(group, name):
-#     response = group.create_load_balancer(
-#         LoadBalancerName= name,
-#         Listeners=[
-#             {
-#                 'Protocol': 'HTTP',
-#                 'LoadBalancerPort': 123,
-#                 'InstanceProtocol': 'string',
-#                 'InstancePort': 123,
-#                 'SSLCertificateId': 'string'
-#             },
-#         ],
-#         AvailabilityZones=[
-#             'string',
-#         ],
-#         Subnets=[
-#             'string',
-#         ],
-#         SecurityGroups=[
-#             'string',
-#         ],
-#         Scheme='string',
-#         Tags=[
-#             {
-#                 'Key': 'string',
-#                 'Value': 'string'
-#             },
-#         ]
-#     )
+def create_autoScalingGroup(group, instDjango, loadbalance):
+    response = group.create_auto_scaling_group(
+        AutoScalingGroupName='Django-Lucas-AutoScale',
+
+        InstanceId=instDjango,
+        MinSize=1,
+        MaxSize=5,
+        DesiredCapacity=1,
+        DefaultCooldown=300,
+        LoadBalancerNames=[
+            loadbalance,
+        ],
+    )
+    print(response)
+    return response
+
 #-----------------------------------------------------------------------------------------------------------------------------------------------------
 # RESOURCES
 ec2_NorthVirginia = boto3.resource('ec2', region_name='us-east-1')
@@ -136,11 +142,13 @@ ec2_Ohio = boto3.resource('ec2', region_name='us-east-2')
 ec2_Ohio_cli = boto3.client('ec2', region_name='us-east-2')
 ec2_NorthVirginia_cli = boto3.client('ec2', region_name='us-east-1')
 
-
+elb = boto3.client('elb',region_name='us-east-1')
+autoscaling = boto3.client('autoscaling',region_name='us-east-1')
 
 #-----------------------------------------------------------------------------------------------------------------------------------------------------
 # CREATING INSTANCE POSTGRESQL
 postgres = create_instance(ec2_Ohio_cli, 'ami-0dd9f0e7df0f0a138',1,1,'t2.micro', 'lucas','postgres-LUCAS','lucask','sg-e4539d98', open('startup.sh').read())
+
 print("Subindo Postgres...")
 
 waiter = ec2_Ohio_cli.get_waiter('instance_status_ok')
@@ -171,12 +179,21 @@ waiter.wait(InstanceIds=[
 django_IP = getIP(ec2_NorthVirginia_cli, django)
 print("Para acessar o DB online -> http://{0}:8080/admin".format(django_IP))
 
-print('criando image...')
-djangoImageId = create_image(ec2_NorthVirginia_cli,django)
+# print('criando image...')
+# djangoImageId = create_image(ec2_NorthVirginia_cli,django)
 
-waiter = ec2_NorthVirginia_cli.get_waiter('image_available')
-waiter.wait(
-    ImageIds=[
-        djangoImageId,]
-)
-print("imagem criada!")
+# waiter = ec2_NorthVirginia_cli.get_waiter('image_available')
+# waiter.wait(
+#     ImageIds=[
+#         djangoImageId,]
+# )
+# print("imagem criada!")
+
+# stop_instance(ec2_NorthVirginia, django)
+
+
+#-----------------------------------------------------------------------------------------------------------------------------------------------------
+# CREATING LOAD BALANCE
+loadbalance = create_LoadBalancer(elb, 'loadbalancelucas1')
+print("pararatimbum")
+autoscaling = create_autoScalingGroup(autoscaling,django,'loadbalancelucas1')
