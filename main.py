@@ -1,6 +1,9 @@
 # PROJETO DE COMPUTAÇÃO EM NUVEM
 # PROFESSOR RAUL IKEDA
 # AUTOR: LUCAS LEAL VALE
+# TODO
+# SECURITY GROUP
+# KEYS
 
 #-----------------------------------------------------------------------------------------------------------------------------------------------------
 # REFERENCIAS:
@@ -31,7 +34,6 @@ def reboot(group, id_instance):
     except ClientError as e:
         print('Error', e)
 
-
 def getIP(group, id):
     response = group.describe_instances()
     for a in response['Reservations']:
@@ -39,15 +41,17 @@ def getIP(group, id):
             if i['InstanceId'] == id:
                 if i['State']['Name'] == 'running':
                     return(i['PublicIpAddress'])
-                    
-def getOwner(group):
+                   
+def getOwner(group,keyname):
+    id_inst_list = []
+
     response = group.describe_instances()
     for a in response['Reservations']:
         for i in a['Instances']:
-            if i['KeyName'] == 'lucask':
+            if i['KeyName'] == keyname:
                 if i['State']['Name'] == 'running':
-                    return(i['InstanceId'])
-                    
+                    id_inst_list.append(i['InstanceId'])
+    return(id_inst_list)                                        
                     
 def create_instance(group,ami, mincount, maxcount, machine, owner,name, myKey,security_group, startUP):
     response = group.run_instances(ImageId=ami, MinCount=mincount, MaxCount=maxcount,SecurityGroupIds=[security_group,], InstanceType = machine, TagSpecifications=[
@@ -68,7 +72,7 @@ def create_instance(group,ami, mincount, maxcount, machine, owner,name, myKey,se
     )
     return (response['Instances'][0]['InstanceId'])
 
-def stop_instance(group,ids):
+def terminate_instance(group,ids):
     
     try:
         group.instances.filter(InstanceIds=[ids]).terminate()
@@ -77,17 +81,24 @@ def stop_instance(group,ids):
             print("instancia ja pausada")
             raise
 
-def  check_instances(group):
-    id_inst_list = []
-    instances = group.instances.filter(
-        Filters=[{'Name': 'instance-state-name', 'Values': ['running']}])
+def terminate_AutoScaling_group(client,nameAutoScalig):
+    response = client.delete_auto_scaling_group(
+        AutoScalingGroupName=nameAutoScalig,
+        ForceDelete=True
+    )
+    return response
 
+def terminate_launch_config(client,name_launch_config):
+    response = client.delete_launch_configuration(
+        LaunchConfigurationName=name_launch_config
+    )
+    return response
 
-    for instance in instances:
-            id_inst_list.append(instance.id)
-            print(instance.id, instance.instance_type)
-
-    return(id_inst_list)
+def terminate_load_balancer(client,name):
+    response = client.delete_load_balancer(
+    LoadBalancerName= name
+    )
+    return response
 
 def create_image(group,instID):   
     response = group.create_image(
@@ -96,7 +107,6 @@ def create_image(group,instID):
         Name='django-lucas',
     )
     return(response['ImageId'])
-
 
 def create_LoadBalancer(group, name):
     response = group.create_load_balancer(
@@ -116,12 +126,11 @@ def create_LoadBalancer(group, name):
             'sg-017d1eb931b861ac5',
         ],
     )
-    print(response['DNSName'])
     return response['DNSName']
 
-def create_autoScalingGroup(group, instDjango, loadbalance):
+def create_autoScalingGroup(group, instDjango, loadbalance, owner):
     response = group.create_auto_scaling_group(
-        AutoScalingGroupName='Django-Lucas-AutoScale2',
+        AutoScalingGroupName='Django-Lucas-AutoScale',
 
         InstanceId=instDjango,
         MinSize=1,
@@ -130,12 +139,36 @@ def create_autoScalingGroup(group, instDjango, loadbalance):
         DefaultCooldown=300,
         LoadBalancerNames=[
             loadbalance,
-        ],
+        ],Tags = [
+                {
+                    'Key': 'owner',
+                    'Value': owner
+                },
+                
+            ],
     )
-    print(response)
     return response
 
+def check_load_balance(client):
+    response = client.describe_load_balancers()
+    for i in response['LoadBalancerDescriptions']:
+        if(i['LoadBalancerName'] == 'loadbalancelucas1'):
+            return(response['LoadBalancerDescriptions'][0]['LoadBalancerName'])
+
+def check_autoScaling(client):
+    response = client.describe_auto_scaling_groups()
+    for i in response['AutoScalingGroups']:
+        if(i['AutoScalingGroupName'] == 'Django-Lucas-AutoScale'):
+            return(response['AutoScalingGroups'][0]['AutoScalingGroupName'])
+        
+def check_launch_config(client):
+    response = client.describe_launch_configurations()
+    for i in response['LaunchConfigurations']:
+        if(i['LaunchConfigurationName'] == 'Django-Lucas-AutoScale'):
+            return(response['LaunchConfigurations'][0]['LaunchConfigurationName'])
+    
 #-----------------------------------------------------------------------------------------------------------------------------------------------------
+
 # RESOURCES
 ec2_NorthVirginia = boto3.resource('ec2', region_name='us-east-1')
 ec2_Ohio = boto3.resource('ec2', region_name='us-east-2')
@@ -144,27 +177,49 @@ ec2_Ohio_cli = boto3.client('ec2', region_name='us-east-2')
 ec2_NorthVirginia_cli = boto3.client('ec2', region_name='us-east-1')
 
 elb = boto3.client('elb',region_name='us-east-1')
-autoscaling = boto3.client('autoscaling',region_name='us-east-1')
+autoscalingCli = boto3.client('autoscaling',region_name='us-east-1')
 
+#Disponibility
+# Retrieves all regions/endpoints that work with EC2
+#ec2_Ohio_availability_regions = ec2_Ohio_cli.describe_regions()
+#print('Regions:', ec2_Ohio_availability_regions['Regions'])
 
+# Retrieves availability zones only for region of the ec2 object
+#ec2_Ohio_availability_zones = ec2_Ohio_cli.describe_availability_zones()
+#print('Availability Zones:', ec2_Ohio_availability_zones['AvailabilityZones'])
+ 
 #-----------------------------------------------------------------------------------------------------------------------------------------------------
 # PREPARANDO O TERRENO - DELETING PREVIOUS INSTANCES IF EXIST
 
+myInstancesOhio = getOwner(ec2_Ohio_cli,'lucask')
+myInstancesNorthVirginia = getOwner(ec2_NorthVirginia_cli,'lucaslealk')
 
+print("deletando instancias")
 
+if len(myInstancesNorthVirginia) > 0:
+    for i in myInstancesNorthVirginia:
+        terminate_instance(ec2_NorthVirginia,i)
 
+if len(myInstancesOhio) > 0:
+    for j in myInstancesOhio:
+        terminate_instance(ec2_Ohio,j)
 
+check_auto = check_autoScaling(autoscalingCli)
+if(check_auto != None ):
+    terminate_AutoScaling_group(autoscalingCli,check_auto)
 
+check_launch = check_launch_config(autoscalingCli)
+if(check_launch != None ):
+    terminate_launch_config(autoscalingCli,check_launch)
 
-
-
-
-
+check_load=check_load_balance(elb)
+if(check_load != None ):
+    terminate_load_balancer(elb,check_load)
 
 #-----------------------------------------------------------------------------------------------------------------------------------------------------
-# CREATING INSTANCE POSTGRESQL
-postgres = create_instance(ec2_Ohio_cli, 'ami-0dd9f0e7df0f0a138',1,1,'t2.micro', 'lucas','postgres-LUCAS','lucask','sg-e4539d98', open('startup.sh').read())
+#CREATING INSTANCE POSTGRESQL
 
+postgres = create_instance(ec2_Ohio_cli, 'ami-0dd9f0e7df0f0a138',1,1,'t2.micro', 'lucas','postgres-LUCAS','lucask','sg-e4539d98', open('startup.sh').read())
 print("Subindo Postgres...")
 
 waiter = ec2_Ohio_cli.get_waiter('instance_status_ok')
@@ -174,6 +229,7 @@ waiter.wait(InstanceIds=[
 
 #-----------------------------------------------------------------------------------------------------------------------------------------------------
 # SELECIONANDO IP do PostgreSQL PARA O DJANGO
+
 ip4django = getIP(ec2_Ohio_cli, postgres)
 start = open("startupNV.sh", "r")
 lines = start.readlines()
@@ -184,6 +240,7 @@ start.close()
 
 #-----------------------------------------------------------------------------------------------------------------------------------------------------
 # CREATING INSTANCES DJANGO
+
 django = create_instance(ec2_NorthVirginia_cli, 'ami-0817d428a6fb68645',1,1,'t2.micro', 'lucas','django-LUCAS','lucaslealk','sg-017d1eb931b861ac5', open('startupNV.sh').read())
 print("Subindo Django...")
 
@@ -197,12 +254,17 @@ print("Para acessar o DB online via django original-> http://{0}:8080/admin".for
 
 #-----------------------------------------------------------------------------------------------------------------------------------------------------
 # CREATING LOAD BALANCE
+
 loadbalance = create_LoadBalancer(elb, 'loadbalancelucas1')
+print("loadbalancer")
 print("Para acessar o DB via load banlancer online -> http://{0}:80/admin".format(loadbalance))
 
 #-----------------------------------------------------------------------------------------------------------------------------------------------------
 # CREATING AutoScalingGroup
-autoscaling = create_autoScalingGroup(autoscaling,django,'loadbalancelucas1')
+
+autoscaling = create_autoScalingGroup(autoscalingCli,django,'loadbalancelucas1', 'lucas')
+print("autoscaling")
+check_autoScaling(autoscalingCli)
 
 #-----------------------------------------------------------------------------------------------------------------------------------------------------
 print("Tudo online!")
