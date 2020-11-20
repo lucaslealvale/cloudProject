@@ -2,7 +2,6 @@
 # PROFESSOR RAUL IKEDA
 # AUTOR: LUCAS LEAL VALE
 # TODO
-# SECURITY GROUP
 # KEYS
 
 #-----------------------------------------------------------------------------------------------------------------------------------------------------
@@ -41,19 +40,20 @@ def getIP(group, id):
             if i['InstanceId'] == id:
                 if i['State']['Name'] == 'running':
                     return(i['PublicIpAddress'])
-                   
-def getOwner(group,keyname):
+        
+def getOwner(group,name):
     id_inst_list = []
 
     response = group.describe_instances()
     for a in response['Reservations']:
         for i in a['Instances']:
-            if i['KeyName'] == keyname:
-                if i['State']['Name'] == 'running':
+            for j in i['Tags']:
+                if j['Value'] == name:
                     id_inst_list.append(i['InstanceId'])
-    return(id_inst_list)                                        
+                         
+    return(id_inst_list)
                     
-def create_instance(group,ami, mincount, maxcount, machine, owner,name, myKey,security_group, startUP):
+def create_instance(group,ami, mincount, maxcount, machine, owner,name,security_group, startUP):
     response = group.run_instances(ImageId=ami, MinCount=mincount, MaxCount=maxcount,SecurityGroupIds=[security_group,], InstanceType = machine, TagSpecifications=[
         {
             'ResourceType':'instance',
@@ -68,7 +68,7 @@ def create_instance(group,ami, mincount, maxcount, machine, owner,name, myKey,se
                 },
             ]
         },
-    ], KeyName=myKey, UserData = startUP
+    ], UserData = startUP
     )
     return (response['Instances'][0]['InstanceId'])
 
@@ -108,7 +108,7 @@ def create_image(group,instID):
     )
     return(response['ImageId'])
 
-def create_LoadBalancer(group, name):
+def create_LoadBalancer(group, name,securityGroup):
     response = group.create_load_balancer(
         LoadBalancerName= name,
         Listeners=[
@@ -123,12 +123,12 @@ def create_LoadBalancer(group, name):
             'us-east-1d' ,'us-east-1e','us-east-1f',
         ],
         SecurityGroups=[
-            'sg-017d1eb931b861ac5',
+            securityGroup,
         ],
     )
     return response['DNSName']
 
-def create_autoScalingGroup(group, instDjango, loadbalance, owner):
+def create_autoScalingGroup(group, instDjango, loadbalance, owner,name):
     response = group.create_auto_scaling_group(
         AutoScalingGroupName='Django-Lucas-AutoScale',
 
@@ -143,6 +143,10 @@ def create_autoScalingGroup(group, instDjango, loadbalance, owner):
                 {
                     'Key': 'owner',
                     'Value': owner
+                },
+                {
+                    'Key': 'Name',
+                    'Value': name
                 },
                 
             ],
@@ -166,60 +170,160 @@ def check_launch_config(client):
     for i in response['LaunchConfigurations']:
         if(i['LaunchConfigurationName'] == 'Django-Lucas-AutoScale'):
             return(response['LaunchConfigurations'][0]['LaunchConfigurationName'])
-    
-#-----------------------------------------------------------------------------------------------------------------------------------------------------
 
+def get_vpcs(client):
+    response = client.describe_vpcs()
+    for i in response['Vpcs']:
+        return i['VpcId']
+
+def create_security_group(client,name,vpc,owner):
+    response = client.create_security_group(
+    Description='Security group de Lucas',
+    GroupName=name,
+    VpcId=vpc,
+    TagSpecifications=[
+        {
+            'ResourceType': 'security-group',
+            'Tags': [
+                {
+                    'Key': 'owner',
+                    'Value': owner
+                },
+            ]
+        },
+    ],
+    )
+    return response['GroupId']
+
+def terminate_security_group(client,name):
+    response = client.delete_security_group(
+    GroupName = name,
+    )
+    return response
+
+def gates(client,id):
+    response = client.authorize_security_group_ingress(
+    GroupId=id,
+    IpPermissions=[
+        {
+            'FromPort': 8080,
+            'IpProtocol': 'tcp',
+            'IpRanges': [
+                {
+                    'CidrIp': '0.0.0.0/0',
+                    'Description': 'string'
+                },
+            ],
+            'ToPort': 8080,
+            
+        },
+        {
+            'FromPort': 5432,
+            'IpProtocol': 'tcp',
+            'IpRanges': [
+                {
+                    'CidrIp': '0.0.0.0/0',
+                    'Description': 'string'
+                },
+            ],
+            'ToPort': 5432,
+            
+        },
+        {
+            'FromPort': 80,
+            'IpProtocol': 'tcp',
+            'IpRanges': [
+                {
+                    'CidrIp': '0.0.0.0/0',
+                    'Description': 'string'
+                },
+            ],
+            'ToPort': 80,
+            
+        },
+    ],)
+    return response
+
+def getSecurityGroups(client,scname):
+    response = client.describe_security_groups()
+    for i in response['SecurityGroups']:
+        if i['GroupName'] == scname:
+            return i['GroupName']
+#-----------------------------------------------------------------------------------------------------------------------------------------------------
 # RESOURCES
+
 ec2_NorthVirginia = boto3.resource('ec2', region_name='us-east-1')
 ec2_Ohio = boto3.resource('ec2', region_name='us-east-2')
+
 # CLIENTS
+
 ec2_Ohio_cli = boto3.client('ec2', region_name='us-east-2')
 ec2_NorthVirginia_cli = boto3.client('ec2', region_name='us-east-1')
 
 elb = boto3.client('elb',region_name='us-east-1')
 autoscalingCli = boto3.client('autoscaling',region_name='us-east-1')
 
-#Disponibility
-# Retrieves all regions/endpoints that work with EC2
-#ec2_Ohio_availability_regions = ec2_Ohio_cli.describe_regions()
-#print('Regions:', ec2_Ohio_availability_regions['Regions'])
-
-# Retrieves availability zones only for region of the ec2 object
-#ec2_Ohio_availability_zones = ec2_Ohio_cli.describe_availability_zones()
-#print('Availability Zones:', ec2_Ohio_availability_zones['AvailabilityZones'])
- 
 #-----------------------------------------------------------------------------------------------------------------------------------------------------
 # PREPARANDO O TERRENO - DELETING PREVIOUS INSTANCES IF EXIST
 
-myInstancesOhio = getOwner(ec2_Ohio_cli,'lucask')
-myInstancesNorthVirginia = getOwner(ec2_NorthVirginia_cli,'lucaslealk')
+myInstancesOhio = getOwner(ec2_Ohio_cli,'lucas1')
+myInstancesNorthVirginia = getOwner(ec2_NorthVirginia_cli,'lucas2')
 
 print("deletando instancias")
-
 if len(myInstancesNorthVirginia) > 0:
     for i in myInstancesNorthVirginia:
         terminate_instance(ec2_NorthVirginia,i)
+        
+waiter = ec2_NorthVirginia_cli.get_waiter('instance_terminated')
+waiter.wait()
 
 if len(myInstancesOhio) > 0:
     for j in myInstancesOhio:
         terminate_instance(ec2_Ohio,j)
 
-check_auto = check_autoScaling(autoscalingCli)
-if(check_auto != None ):
-    terminate_AutoScaling_group(autoscalingCli,check_auto)
-
-check_launch = check_launch_config(autoscalingCli)
-if(check_launch != None ):
-    terminate_launch_config(autoscalingCli,check_launch)
+waiter = ec2_Ohio_cli.get_waiter('instance_terminated')
+waiter.wait()
 
 check_load=check_load_balance(elb)
 if(check_load != None ):
     terminate_load_balancer(elb,check_load)
 
+
+check_auto = check_autoScaling(autoscalingCli)
+if(check_auto != None ):
+    terminate_AutoScaling_group(autoscalingCli,check_auto)
+
+
+check_launch = check_launch_config(autoscalingCli)
+if(check_launch != None ):
+    terminate_launch_config(autoscalingCli,check_launch)
+
+waiter = ec2_NorthVirginia_cli.get_waiter('instance_terminated')
+waiter.wait()
+
+mySecurityGroupOhio = getSecurityGroups(ec2_Ohio_cli,'securityOhioLucas')
+mySecurityGroupNV = getSecurityGroups(ec2_NorthVirginia_cli,'securityVirginiaLucas')
+time.sleep(60)
+if(mySecurityGroupNV != None ):
+    terminate_security_group(ec2_NorthVirginia_cli,mySecurityGroupNV)
+if(mySecurityGroupOhio != None ):
+    terminate_security_group(ec2_Ohio_cli,mySecurityGroupOhio)
+
+#-----------------------------------------------------------------------------------------------------------------------------------------------------
+# Security Groups
+
+vpcOhio = get_vpcs(ec2_Ohio_cli)
+vpcNV   = get_vpcs(ec2_NorthVirginia_cli)
+
+security_group_NorthVirginia = create_security_group(ec2_NorthVirginia_cli,'securityVirginiaLucas',vpcNV,'lucas')
+security_group_Ohio = create_security_group(ec2_Ohio_cli,'securityOhioLucas',vpcOhio,'lucas')
+portsNV = gates(ec2_NorthVirginia_cli, security_group_NorthVirginia)
+portsOhio = gates(ec2_Ohio_cli, security_group_Ohio)
+
 #-----------------------------------------------------------------------------------------------------------------------------------------------------
 #CREATING INSTANCE POSTGRESQL
 
-postgres = create_instance(ec2_Ohio_cli, 'ami-0dd9f0e7df0f0a138',1,1,'t2.micro', 'lucas','postgres-LUCAS','lucask','sg-e4539d98', open('startup.sh').read())
+postgres = create_instance(ec2_Ohio_cli, 'ami-0dd9f0e7df0f0a138',1,1,'t2.micro', 'lucas1','postgres-LUCAS','securityOhioLucas', open('startup.sh').read())
 print("Subindo Postgres...")
 
 waiter = ec2_Ohio_cli.get_waiter('instance_status_ok')
@@ -241,7 +345,7 @@ start.close()
 #-----------------------------------------------------------------------------------------------------------------------------------------------------
 # CREATING INSTANCES DJANGO
 
-django = create_instance(ec2_NorthVirginia_cli, 'ami-0817d428a6fb68645',1,1,'t2.micro', 'lucas','django-LUCAS','lucaslealk','sg-017d1eb931b861ac5', open('startupNV.sh').read())
+django = create_instance(ec2_NorthVirginia_cli, 'ami-0817d428a6fb68645',1,1,'t2.micro', 'lucas2','django-LUCAS','securityVirginiaLucas', open('startupNV.sh').read())
 print("Subindo Django...")
 
 waiter = ec2_NorthVirginia_cli.get_waiter('instance_status_ok')
@@ -255,16 +359,16 @@ print("Para acessar o DB online via django original-> http://{0}:8080/admin".for
 #-----------------------------------------------------------------------------------------------------------------------------------------------------
 # CREATING LOAD BALANCE
 
-loadbalance = create_LoadBalancer(elb, 'loadbalancelucas1')
+loadbalance = create_LoadBalancer(elb, 'loadbalancelucas1',security_group_NorthVirginia)
 print("loadbalancer")
 print("Para acessar o DB via load banlancer online -> http://{0}:80/admin".format(loadbalance))
 
 #-----------------------------------------------------------------------------------------------------------------------------------------------------
 # CREATING AutoScalingGroup
 
-autoscaling = create_autoScalingGroup(autoscalingCli,django,'loadbalancelucas1', 'lucas')
+autoscaling = create_autoScalingGroup(autoscalingCli,django,'loadbalancelucas1', 'lucas2','lucas2')
 print("autoscaling")
 check_autoScaling(autoscalingCli)
 
 #-----------------------------------------------------------------------------------------------------------------------------------------------------
-print("Tudo online!")
+print("em cerca de 10 minutos o load balancer estara online!")
