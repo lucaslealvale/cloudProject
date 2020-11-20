@@ -47,9 +47,11 @@ def getOwner(group,name):
     response = group.describe_instances()
     for a in response['Reservations']:
         for i in a['Instances']:
-            for j in i['Tags']:
-                if j['Value'] == name:
-                    id_inst_list.append(i['InstanceId'])
+            #print(i['State']['Name'])
+            if i['State']['Name'] != 'terminated':
+                for j in i['Tags']:
+                    if j['Value'] == name:
+                        id_inst_list.append(i['InstanceId'])
                          
     return(id_inst_list)
                     
@@ -266,51 +268,48 @@ autoscalingCli = boto3.client('autoscaling',region_name='us-east-1')
 #-----------------------------------------------------------------------------------------------------------------------------------------------------
 # PREPARANDO O TERRENO - DELETING PREVIOUS INSTANCES IF EXIST
 
-myInstancesOhio = getOwner(ec2_Ohio_cli,'lucas1')
-myInstancesNorthVirginia = getOwner(ec2_NorthVirginia_cli,'lucas2')
-
 print("deletando instancias")
+
+myInstancesNorthVirginia = getOwner(ec2_NorthVirginia_cli,'lucas2')
 if len(myInstancesNorthVirginia) > 0:
     for i in myInstancesNorthVirginia:
         terminate_instance(ec2_NorthVirginia,i)
-        
-waiter = ec2_NorthVirginia_cli.get_waiter('instance_terminated')
-waiter.wait()
+    print("Previous NV Instances terminated")
+else: 
+    print("There where no instances to terminate in NV")
 
+myInstancesOhio = getOwner(ec2_Ohio_cli,'lucas1')
 if len(myInstancesOhio) > 0:
     for j in myInstancesOhio:
         terminate_instance(ec2_Ohio,j)
-
-waiter = ec2_Ohio_cli.get_waiter('instance_terminated')
-waiter.wait()
+    print("Previous Ohio Instances terminated")
+else: 
+    print("There where no instances to terminate in Ohio")
 
 check_load=check_load_balance(elb)
 if(check_load != None ):
     terminate_load_balancer(elb,check_load)
 
-
 check_auto = check_autoScaling(autoscalingCli)
 if(check_auto != None ):
     terminate_AutoScaling_group(autoscalingCli,check_auto)
-
 
 check_launch = check_launch_config(autoscalingCli)
 if(check_launch != None ):
     terminate_launch_config(autoscalingCli,check_launch)
 
-waiter = ec2_NorthVirginia_cli.get_waiter('instance_terminated')
-waiter.wait()
-
 mySecurityGroupOhio = getSecurityGroups(ec2_Ohio_cli,'securityOhioLucas')
 mySecurityGroupNV = getSecurityGroups(ec2_NorthVirginia_cli,'securityVirginiaLucas')
+
 time.sleep(60)
+
 if(mySecurityGroupNV != None ):
     terminate_security_group(ec2_NorthVirginia_cli,mySecurityGroupNV)
 if(mySecurityGroupOhio != None ):
     terminate_security_group(ec2_Ohio_cli,mySecurityGroupOhio)
 
 #-----------------------------------------------------------------------------------------------------------------------------------------------------
-# Security Groups
+#Security Groups
 
 vpcOhio = get_vpcs(ec2_Ohio_cli)
 vpcNV   = get_vpcs(ec2_NorthVirginia_cli)
