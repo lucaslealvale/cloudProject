@@ -2,7 +2,6 @@
 # PROFESSOR RAUL IKEDA
 # AUTOR: LUCAS LEAL VALE
 # TODO
-# KEYS
 
 #-----------------------------------------------------------------------------------------------------------------------------------------------------
 # REFERENCIAS:
@@ -251,6 +250,7 @@ def getSecurityGroups(client,scname):
     for i in response['SecurityGroups']:
         if i['GroupName'] == scname:
             return i['GroupName']
+
 #-----------------------------------------------------------------------------------------------------------------------------------------------------
 # RESOURCES
 
