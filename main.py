@@ -368,19 +368,19 @@ waiter.wait(InstanceIds=[
 django_IP = getIP(ec2_NorthVirginia_cli, django)
 print("Para acessar o DB online via django original-> http://{0}:8080/admin".format(django_IP))
 
+-----------------------------------------------------------------------------------------------------------------------------------------------------
+CREATING LOAD BALANCE
+
+loadbalance = create_LoadBalancer(elb, 'loadbalancelucas1',security_group_NorthVirginia)
+print("loadbalancer")
+print("Para acessar o DB via load banlancer online -> http://{0}:80/admin".format(loadbalance))
+
 #-----------------------------------------------------------------------------------------------------------------------------------------------------
-# CREATING LOAD BALANCE
+# CREATING AutoScalingGroup
 
-# loadbalance = create_LoadBalancer(elb, 'loadbalancelucas1',security_group_NorthVirginia)
-# print("loadbalancer")
-# print("Para acessar o DB via load banlancer online -> http://{0}:80/admin".format(loadbalance))
-
-# #-----------------------------------------------------------------------------------------------------------------------------------------------------
-# # CREATING AutoScalingGroup
-
-# autoscaling = create_autoScalingGroup(autoscalingCli,django,'loadbalancelucas1', 'lucas2','lucas2')
-# print("autoscaling")
-# check_autoScaling(autoscalingCli)
+autoscaling = create_autoScalingGroup(autoscalingCli,django,'loadbalancelucas1', 'lucas2','lucas2')
+print("autoscaling")
+check_autoScaling(autoscalingCli)
 
 #-----------------------------------------------------------------------------------------------------------------------------------------------------
 print("em cerca de 10 minutos o load balancer estara online!")
