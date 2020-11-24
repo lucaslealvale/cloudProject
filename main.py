@@ -13,6 +13,7 @@
 # CREATE DATABASE POSTGRES -----> https://stackoverflow.com/questions/30641512/create-database-from-command-line
 # edit file in the last line----->https://unix.stackexchange.com/questions/20573/sed-insert-text-after-the-last-line
 # EDIT FILE PYTHON ---> https://www.kite.com/python/answers/how-to-edit-a-specific-line-in-a-text-file-in-python
+# EDIÇÕES NO TASK -> POST AND GET -> https://www.askpython.com/django/django-listview
 #-----------------------------------------------------------------------------------------------------------------------------------------------------
 import time
 import boto3
@@ -54,7 +55,7 @@ def getOwner(group,name):
                          
     return(id_inst_list)
                     
-def create_instance(group,ami, mincount, maxcount, machine, owner,name,security_group, startUP):
+def create_instance(group,ami, mincount, maxcount, machine, owner,name,security_group, startUP,key):
     response = group.run_instances(ImageId=ami, MinCount=mincount, MaxCount=maxcount,SecurityGroupIds=[security_group,], InstanceType = machine, TagSpecifications=[
         {
             'ResourceType':'instance',
@@ -69,7 +70,7 @@ def create_instance(group,ami, mincount, maxcount, machine, owner,name,security_
                 },
             ]
         },
-    ], UserData = startUP
+    ], UserData = startUP, KeyName = key,
     )
     return (response['Instances'][0]['InstanceId'])
 
@@ -242,6 +243,18 @@ def gates(client,id):
             'ToPort': 80,
             
         },
+        {
+            'FromPort': 22,
+            'IpProtocol': 'tcp',
+            'IpRanges': [
+                {
+                    'CidrIp': '0.0.0.0/0',
+                    'Description': 'string'
+                },
+            ],
+            'ToPort': 22,
+            
+        },
     ],)
     return response
 
@@ -322,7 +335,7 @@ portsOhio = gates(ec2_Ohio_cli, security_group_Ohio)
 #-----------------------------------------------------------------------------------------------------------------------------------------------------
 #CREATING INSTANCE POSTGRESQL
 
-postgres = create_instance(ec2_Ohio_cli, 'ami-0dd9f0e7df0f0a138',1,1,'t2.micro', 'lucas1','postgres-LUCAS','securityOhioLucas', open('startup.sh').read())
+postgres = create_instance(ec2_Ohio_cli, 'ami-0dd9f0e7df0f0a138',1,1,'t2.micro', 'lucas1','postgres-LUCAS','securityOhioLucas', open('startup.sh').read(),'lucaslk')
 print("Subindo Postgres...")
 
 waiter = ec2_Ohio_cli.get_waiter('instance_status_ok')
@@ -344,7 +357,7 @@ start.close()
 #-----------------------------------------------------------------------------------------------------------------------------------------------------
 # CREATING INSTANCES DJANGO
 
-django = create_instance(ec2_NorthVirginia_cli, 'ami-0817d428a6fb68645',1,1,'t2.micro', 'lucas2','django-LUCAS','securityVirginiaLucas', open('startupNV.sh').read())
+django = create_instance(ec2_NorthVirginia_cli, 'ami-0817d428a6fb68645',1,1,'t2.micro', 'lucas2','django-LUCAS','securityVirginiaLucas', open('startupNV.sh').read(),'lucask')
 print("Subindo Django...")
 
 waiter = ec2_NorthVirginia_cli.get_waiter('instance_status_ok')
@@ -358,16 +371,16 @@ print("Para acessar o DB online via django original-> http://{0}:8080/admin".for
 #-----------------------------------------------------------------------------------------------------------------------------------------------------
 # CREATING LOAD BALANCE
 
-loadbalance = create_LoadBalancer(elb, 'loadbalancelucas1',security_group_NorthVirginia)
-print("loadbalancer")
-print("Para acessar o DB via load banlancer online -> http://{0}:80/admin".format(loadbalance))
+# loadbalance = create_LoadBalancer(elb, 'loadbalancelucas1',security_group_NorthVirginia)
+# print("loadbalancer")
+# print("Para acessar o DB via load banlancer online -> http://{0}:80/admin".format(loadbalance))
 
-#-----------------------------------------------------------------------------------------------------------------------------------------------------
-# CREATING AutoScalingGroup
+# #-----------------------------------------------------------------------------------------------------------------------------------------------------
+# # CREATING AutoScalingGroup
 
-autoscaling = create_autoScalingGroup(autoscalingCli,django,'loadbalancelucas1', 'lucas2','lucas2')
-print("autoscaling")
-check_autoScaling(autoscalingCli)
+# autoscaling = create_autoScalingGroup(autoscalingCli,django,'loadbalancelucas1', 'lucas2','lucas2')
+# print("autoscaling")
+# check_autoScaling(autoscalingCli)
 
 #-----------------------------------------------------------------------------------------------------------------------------------------------------
 print("em cerca de 10 minutos o load balancer estara online!")
