@@ -368,8 +368,8 @@ waiter.wait(InstanceIds=[
 django_IP = getIP(ec2_NorthVirginia_cli, django)
 print("Para acessar o DB online via django original-> http://{0}:8080/admin".format(django_IP))
 
------------------------------------------------------------------------------------------------------------------------------------------------------
-CREATING LOAD BALANCE
+# -----------------------------------------------------------------------------------------------------------------------------------------------------
+# CREATING LOAD BALANCE
 
 loadbalance = create_LoadBalancer(elb, 'loadbalancelucas1',security_group_NorthVirginia)
 print("loadbalancer")
