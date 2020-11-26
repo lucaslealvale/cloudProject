@@ -384,3 +384,16 @@ check_autoScaling(autoscalingCli)
 
 #-----------------------------------------------------------------------------------------------------------------------------------------------------
 print("em cerca de 10 minutos o load balancer estara online!")
+
+#-----------------------------------------------------------------------------------------------------------------------------------------------------
+# Editing client URLs
+
+start = open("client.py", "r")
+lines = start.readlines()
+
+lines[2] = ("url_get  = 'http://{0}/tasks/tarefas'\n").format(loadbalance)
+lines[3] = ("url_post = 'http://{0}/tasks/post'\n").format(loadbalance)
+
+start = open("client.py", "w")
+start.writelines(lines)
+start.close()
