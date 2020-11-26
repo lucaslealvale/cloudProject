@@ -1,8 +1,8 @@
 import requests
 import time
 
-url_get  = 'http://aaaaaaaaaaaaaaaaaaaaaa/tasks/tarefas'
-url_post = 'http://aaaaaaaaaaaaaaaaaaaaaa/tasks/post'
+url_get  = 'http://loadbalancelucas1-115339538.us-east-1.elb.amazonaws.com/tasks/tarefas'
+url_post = 'http://loadbalancelucas1-115339538.us-east-1.elb.amazonaws.com/tasks/post'
 
 def post(url, json):
     post = requests.post(url, data = json)
@@ -30,10 +30,12 @@ while(1):
         a = get(url_get)
         print(a.text)
         time.sleep(2)
+    
     elif x == "3":
         print(" ")
         print("Client encerrado")
         break
+    
     else:
         print(" ")
         print("entrada invalida")
