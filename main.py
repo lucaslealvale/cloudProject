@@ -55,7 +55,7 @@ def getOwner(group,name):
                          
     return(id_inst_list)
                     
-def create_instance(group,ami, mincount, maxcount, machine, owner,name,security_group, startUP,key):
+def create_instance(group,ami, mincount, maxcount, machine, owner,name,security_group, startUP):
     response = group.run_instances(ImageId=ami, MinCount=mincount, MaxCount=maxcount,SecurityGroupIds=[security_group,], InstanceType = machine, TagSpecifications=[
         {
             'ResourceType':'instance',
@@ -70,7 +70,7 @@ def create_instance(group,ami, mincount, maxcount, machine, owner,name,security_
                 },
             ]
         },
-    ], UserData = startUP, KeyName = key,
+    ], UserData = startUP, 
     )
     return (response['Instances'][0]['InstanceId'])
 
@@ -311,10 +311,11 @@ check_launch = check_launch_config(autoscalingCli)
 if(check_launch != None ):
     terminate_launch_config(autoscalingCli,check_launch)
 
+time.sleep(90)
+
 mySecurityGroupOhio = getSecurityGroups(ec2_Ohio_cli,'securityOhioLucas')
 mySecurityGroupNV = getSecurityGroups(ec2_NorthVirginia_cli,'securityVirginiaLucas')
 
-time.sleep(60)
 
 if(mySecurityGroupNV != None ):
     terminate_security_group(ec2_NorthVirginia_cli,mySecurityGroupNV)
@@ -335,7 +336,7 @@ portsOhio = gates(ec2_Ohio_cli, security_group_Ohio)
 #-----------------------------------------------------------------------------------------------------------------------------------------------------
 #CREATING INSTANCE POSTGRESQL
 
-postgres = create_instance(ec2_Ohio_cli, 'ami-0dd9f0e7df0f0a138',1,1,'t2.micro', 'lucas1','postgres-LUCAS','securityOhioLucas', open('startup.sh').read(),'lucaslk')
+postgres = create_instance(ec2_Ohio_cli, 'ami-0dd9f0e7df0f0a138',1,1,'t2.micro', 'lucas1','postgres-LUCAS','securityOhioLucas', open('startup.sh').read())
 print("Subindo Postgres...")
 
 waiter = ec2_Ohio_cli.get_waiter('instance_status_ok')
@@ -357,7 +358,7 @@ start.close()
 #-----------------------------------------------------------------------------------------------------------------------------------------------------
 # CREATING INSTANCES DJANGO
 
-django = create_instance(ec2_NorthVirginia_cli, 'ami-0817d428a6fb68645',1,1,'t2.micro', 'lucas2','django-LUCAS','securityVirginiaLucas', open('startupNV.sh').read(),'lucask')
+django = create_instance(ec2_NorthVirginia_cli, 'ami-0817d428a6fb68645',1,1,'t2.micro', 'lucas2','django-LUCAS','securityVirginiaLucas', open('startupNV.sh').read())
 print("Subindo Django...")
 
 waiter = ec2_NorthVirginia_cli.get_waiter('instance_status_ok')

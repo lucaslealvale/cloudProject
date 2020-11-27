@@ -4,7 +4,7 @@ sudo apt update && sudo apt upgrade -y
 cd /home/ubuntu
 sudo git clone https://github.com/lucaslealvale/tasks.git
 echo "jungle" > /home/ubuntu/jungle.txt
-sudo sed -i 's/node1/18.223.164.119/g' /home/ubuntu/tasks/portfolio/settings.py
+sudo sed -i 's/node1/18.223.134.190/g' /home/ubuntu/tasks/portfolio/settings.py
 cd tasks/
 ./install.sh
 echo "welcome " > /home/ubuntu/welcome.txt
