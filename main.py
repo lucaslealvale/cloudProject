@@ -311,11 +311,12 @@ check_launch = check_launch_config(autoscalingCli)
 if(check_launch != None ):
     terminate_launch_config(autoscalingCli,check_launch)
 
-time.sleep(90)
+time.sleep(180)
 
 mySecurityGroupOhio = getSecurityGroups(ec2_Ohio_cli,'securityOhioLucas')
 mySecurityGroupNV = getSecurityGroups(ec2_NorthVirginia_cli,'securityVirginiaLucas')
-
+print(mySecurityGroupNV)
+print(mySecurityGroupOhio)
 
 if(mySecurityGroupNV != None ):
     terminate_security_group(ec2_NorthVirginia_cli,mySecurityGroupNV)
