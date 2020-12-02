@@ -1,8 +1,8 @@
 import requests
 import time
 
-url_get  = 'http://loadbalancelucas1-251942750.us-east-1.elb.amazonaws.com/tasks/tarefas'
-url_post = 'http://loadbalancelucas1-251942750.us-east-1.elb.amazonaws.com/tasks/post'
+url_get  = 'http://loadbalancelucas1-906882693.us-east-1.elb.amazonaws.com/tasks/tarefas'
+url_post = 'http://loadbalancelucas1-906882693.us-east-1.elb.amazonaws.com/tasks/post'
 
 def post(url, json):
     post = requests.post(url, data = json)
