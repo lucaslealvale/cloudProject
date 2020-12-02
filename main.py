@@ -323,6 +323,7 @@ if(mySecurityGroupNV != None ):
 if(mySecurityGroupOhio != None ):
     terminate_security_group(ec2_Ohio_cli,mySecurityGroupOhio)
 
+time.sleep(31)
 #-----------------------------------------------------------------------------------------------------------------------------------------------------
 #Security Groups
 
